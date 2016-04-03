@@ -7,11 +7,14 @@ type Model = Image -> int
 let euclDistance (img1:Image) (img2:Image) =
     (img1,img2) ||> Seq.map2 (fun x y -> (x-y) * (x-y)) |> Seq.sum
 
-let train trainingSet = 
+let train trainingSet k = 
     let classifier (img:Image) =
         trainingSet
-        |> Seq.minBy (fun x -> euclDistance x.Pixels img)
-        |> fun obs -> obs.Label
+        |> Seq.sortBy (fun x -> euclDistance x.Pixels img)
+        |> Seq.take k
+        |> Seq.countBy (fun obs -> obs.Label)
+        |> Seq.maxBy snd
+        |> fst
     classifier
 
 let dropHeader (x:_[]) = x.[1..]
@@ -23,18 +26,21 @@ let read path =
     |> Array.map (fun line -> line |> Array.map int)
     |> Array.map (fun line -> { Label = line.[0]; Pixels = line.[1..] })
 
-let trainingPath = @"c:\users\mathias\documents\visual studio 2012\Projects\Digits-Improve\Digits-Improve\trainingsample.csv"
+let trainingPath = @"c:\git\Dojo-Digits-Recognizer\Dojo\trainingsample.csv"
 let training = read trainingPath
 
-let basicModel = train training
+let basicModel = train training 4
 
-let validationPath = @"c:\users\mathias\documents\visual studio 2012\Projects\Digits-Improve\Digits-Improve\validationsample.csv"
+let validationPath = @"c:\git\Dojo-Digits-Recognizer\Dojo\validationsample.csv"
 let validation = read validationPath
 
 let evaluate (model:Model) =
     validation
     |> Array.averageBy (fun x -> 
+        printfn "%d" x.Label
         if (model (x.Pixels) = x.Label) then 1. else 0.)
+
+evaluate basicModel
 
 // If you want to go further...
 // * Try out 1, 2, .. n neighbors?

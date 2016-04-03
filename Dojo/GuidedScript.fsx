@@ -73,7 +73,7 @@ open System.IO
 // returns an array of strings for each line 
  
 // [ YOUR CODE GOES HERE! ]
- 
+let lines = File.ReadAllLines("c:/git/Dojo-Digits-Recognizer/Dojo/trainingsample.csv") 
  
 // 2. EXTRACTING COLUMNS
  
@@ -102,7 +102,7 @@ let splitResult = csvToSplit.Split(',')
  
  
 // [ YOUR CODE GOES HERE! ]
- 
+let splitted = lines |> Array.map (fun line -> line.Split(',')) 
  
 // 3. CLEANING UP HEADERS
  
@@ -121,7 +121,7 @@ let upToThree = someNumbers.[ .. 2 ]
 
 
 // [ YOUR CODE GOES HERE! ]
- 
+let useful = splitted.[ 1 .. ]
  
 // 4. CONVERTING FROM STRINGS TO INTS
  
@@ -137,7 +137,9 @@ let convertedInt = Convert.ToInt32("42")
  
  
 // [ YOUR CODE GOES HERE! ]
- 
+let ints = 
+    useful
+    |> Array.map (fun row -> row |> Array.map int) 
  
 // 5. CONVERTING ARRAYS TO RECORDS
  
@@ -152,9 +154,32 @@ type Example = { Label:int; Pixels:int[] }
 let example = { Label = 1; Pixels = [| 1; 2; 3; |] }
 // </F# QUICK-STARTER>  
 
+let size = 28
+// compute array index of pixel at (row,col)
+let offset row col = (row * size) + col
+// compute average over square tile;
+// note the array comprehension syntax.
+let blur (img:int[]) row col rad =
+    [| for x in 0 .. (rad-1) do
+        for y in 0 .. (rad-1) do
+            yield img.[offset (row+x) (col+y)] |]
+    |> Array.sum
+
+let blurred n img =
+    [| for row in 0 .. (size - n) do
+        for col in 0 .. (size - n) do 
+            yield blur img row col n |]
+
+let read path = 
+    File.ReadAllLines(path)
+    |> fun l -> l.[1..]
+    |> Array.map (fun row -> row.Split(','))
+    |> Array.map (fun row -> row |> Array.map (int))
+    |> Array.map (fun row -> {Label = row.[0]; Pixels = row.[1..] |> blurred 16})
+
  
 // [ YOUR CODE GOES HERE! ]
- 
+let examples = read "c:/git/Dojo-Digits-Recognizer/Dojo/trainingsample.csv"
  
 // 6. COMPUTING DISTANCES
  
@@ -186,7 +211,11 @@ let distance (p1: int[]) (p2: int[]) = 42
 // 42 is likely not the right answer
  
 // [ YOUR CODE GOES HERE! ]
- 
+open Checked
+
+let euclDist p1 p2 =
+    Array.map2 (fun p1 p2 -> abs(Math.Pow(p1-p2 |> float, 2.))) p1 p2
+    |> Array.sum
  
 // 7. WRITING THE CLASSIFIER FUNCTION
  
@@ -235,7 +264,10 @@ let classify (unknown:int[]) =
     0 
  
 // [ YOUR CODE GOES HERE! ]
- 
+let classifier input =
+    examples
+    |> Array.minBy (fun e -> euclDist e.Pixels input)
+    |> fun e -> e.Label
  
 // 8. EVALUATING THE MODEL AGAINST VALIDATION DATA
  
@@ -250,5 +282,16 @@ let classify (unknown:int[]) =
 // whether your classifier returns the correct answer,
 // and compute the % correctly predicted.
  
- 
 // [ YOUR CODE GOES HERE! ]
+let validation = read "c:/git/Dojo-Digits-Recognizer/Dojo/validationsample.csv"
+    
+
+#time
+
+validation
+|> Array.Parallel.map (fun v -> if classifier v.Pixels = v.Label then 1. else 0.)
+|> Array.average
+//|> Array.averageBy (fun v -> if classifier v.Pixels = v.Label then 1. else 0.)
+
+#time
+
